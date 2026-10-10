@@ -16,9 +16,16 @@
 
 ## Запуск Windows-версии
 
-Windows 10/11, x64. Можно запустить `Neapolis-Solar-0.3.0-Portable.exe` без установки, установить приложение через `Neapolis-Solar-0.3.0-Setup-x64.exe` или распаковать весь ZIP и открыть `Neapolis Solar.exe`. Установщик собирается в Windows/GitHub Actions; локально в Linux проверена сборка Portable. Переносимый вариант при запуске распаковывает необходимые файлы во временный каталог. В систему не устанавливается, но Electron хранит свои пользовательские данные и кеш в профиле пользователя.
+Готовые файлы для **Windows 10/11 x64** находятся в [Releases → v0.3.0](https://github.com/Sviridov001/neapolis-solar/releases/tag/v0.3.0):
 
-Файлы в этой ранней версии не подписаны сертификатом издателя. Реальный запуск на Windows ещё не проверен: сборка выполнялась в Linux. Пройдены вычислительные тесты, проверки локальной загрузки файлов и структуры Windows-пакета.
+- [Portable EXE — запуск без установки](https://github.com/Sviridov001/neapolis-solar/releases/download/v0.3.0/Neapolis-Solar-0.3.0-Portable.exe).
+- [Setup EXE — установщик с выбором папки и ярлыками](https://github.com/Sviridov001/neapolis-solar/releases/download/v0.3.0/Neapolis-Solar-0.3.0-Setup-x64.exe).
+- [ZIP — распакуйте целиком и откройте Neapolis Solar.exe](https://github.com/Sviridov001/neapolis-solar/releases/download/v0.3.0/Neapolis-Solar-0.3.0-Windows-x64.zip).
+- [SHA256SUMS.txt — контрольные суммы](https://github.com/Sviridov001/neapolis-solar/releases/download/v0.3.0/SHA256SUMS.txt).
+
+Node.js для запуска не нужен. Portable распаковывает приложение во временный каталог; настройки и кеш хранятся в профиле пользователя. Установщик ставит приложение для текущего пользователя.
+
+Файлы собраны в GitHub Actions на Windows; вычислительные тесты и проверки локального сервера прошли. EXE пока не подписаны сертификатом издателя. Запуск интерфейса и установка на рабочем компьютере Windows ещё требуют проверки.
 
 ## Сборка из исходников
 
@@ -80,6 +87,7 @@ IFC-движок может сообщать о некорректных BREP-п
 - `tools/prepare-model.mjs` — подготовка сжатого набора из IFC.
 - `tests.mjs`, `desktop/server.test.cjs` — вычислительные и desktop-проверки.
 - `.github/workflows/windows.yml` — Windows-сборка.
+- `.github/workflows/release.yml` — публикация проверенных Windows-артефактов в Releases.
 
 Renderer работает без Node.js, с context isolation и sandbox. Внешние сетевые запросы и навигация блокируются. Сохранение результатов открывает системный диалог выбора пути.
 
@@ -88,3 +96,8 @@ Renderer работает без Node.js, с context isolation и sandbox. Вн�
 ## Изменения 0.3.0
 
 Наклонный веер дневных лучей вместо вертикального сечения. Золотые участки сектора показывают рассчитанные интервалы инсоляции активной точки. Добавлена небольшая модель солнца с ореолом, движущаяся по текущему направлению луча. Ctrl/Command-выделение и Windows-сборка Portable/NSIS/ZIP сохранены.
+
+
+## Публикация новых версий
+
+После успешной Windows-сборки ветки main workflow `Publish Windows release` проверяет контрольные суммы и публикует Portable, Setup, ZIP и SHA256SUMS.txt. Номер релиза берётся из package.json. Файлы уже опубликованного номера версии не заменяются: перед новым выпуском повышайте версию в package.json и package-lock.json. Для ручной публикации ранее проверенной сборки откройте Actions → Publish Windows release → Run workflow и укажите ID успешного запуска Windows application (или оставьте поле пустым для последней успешной сборки main).

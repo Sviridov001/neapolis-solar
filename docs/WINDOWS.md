@@ -2,6 +2,17 @@
 
 Приложение работает на Windows 10/11 x64. IFC обрабатывается локально; установленная программа не требует Node.js или доступа в интернет. Геометрия заказчика в публичный код не включена: после запуска выберите свой IFC.
 
+## Скачать готовое приложение
+
+Откройте [Releases → v0.3.0](https://github.com/Sviridov001/neapolis-solar/releases/tag/v0.3.0). В разделе **Assets** доступны:
+
+- [Neapolis-Solar-0.3.0-Portable.exe](https://github.com/Sviridov001/neapolis-solar/releases/download/v0.3.0/Neapolis-Solar-0.3.0-Portable.exe) — без установки.
+- [Neapolis-Solar-0.3.0-Setup-x64.exe](https://github.com/Sviridov001/neapolis-solar/releases/download/v0.3.0/Neapolis-Solar-0.3.0-Setup-x64.exe) — установщик.
+- [Neapolis-Solar-0.3.0-Windows-x64.zip](https://github.com/Sviridov001/neapolis-solar/releases/download/v0.3.0/Neapolis-Solar-0.3.0-Windows-x64.zip) — полный комплект для распаковки.
+- SHA256SUMS.txt — контрольные суммы.
+
+Для загрузки публичного Release вход в GitHub не требуется.
+
 ## Готовые файлы из GitHub Actions
 
 1. Откройте вкладку **Actions** репозитория `Sviridov001/neapolis-solar`.
@@ -41,4 +52,4 @@ Portable проверен сборкой в Linux, тестами геометр
 
 ## Дальнейший выпуск
 
-Перед распространением широкой аудитории: проверить пакет на чистой Windows, добавить иконку, настроить подпись Authenticode и публиковать прошедшие проверку сборки в GitHub Releases. Автоматическое обновление пока не включено.
+Перед распространением широкой аудитории: проверить пакет на чистой Windows, добавить иконку, настроить подпись Authenticode и проверять опубликованные сборки перед широким распространением. Автоматическое обновление пока не включено.

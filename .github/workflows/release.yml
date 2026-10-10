@@ -1,0 +1,97 @@
+name: Publish Windows release
+on:
+  workflow_run:
+    workflows: ['Windows application']
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Successful Windows application run ID (blank = latest main build)'
+        required: false
+        type: string
+  push:
+    branches: [main]
+    paths: ['.github/workflows/release.yml']
+permissions:
+  contents: read
+concurrency:
+  group: windows-release-publication
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Select a verified Windows build
+        id: build
+        env:
+          REQUESTED_RUN_ID: ${{ inputs.run_id }}
+          COMPLETED_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          run_id="${REQUESTED_RUN_ID:-${COMPLETED_RUN_ID:-}}"
+          if [ -z "$run_id" ]; then
+            run_id=$(gh api "repos/$GH_REPO/actions/workflows/windows.yml/runs?branch=main&status=success&per_page=20" --jq '[.workflow_runs[] | select(.event == "push" or .event == "workflow_dispatch")][0].id')
+          fi
+          [[ "$run_id" =~ ^[0-9]+$ ]]
+          gh api "repos/$GH_REPO/actions/runs/$run_id" > build-run.json
+          jq -e --arg repo "$GH_REPO" '.status == "completed" and .conclusion == "success" and .head_branch == "main" and .head_repository.full_name == $repo and .path == ".github/workflows/windows.yml" and (.event == "push" or .event == "workflow_dispatch")' build-run.json
+          sha=$(jq -r '.head_sha' build-run.json)
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.build.outputs.sha }}
+          persist-credentials: false
+      - name: Download the completed build
+        env:
+          RUN_ID: ${{ steps.build.outputs.run_id }}
+        run: gh run download "$RUN_ID" --repo "$GH_REPO" --name Neapolis-Solar-Windows-x64 --dir release
+      - name: Verify release files and checksums
+        id: version
+        run: |
+          set -euo pipefail
+          version=$(python3 -c 'import json; print(json.load(open("package.json"))["version"])')
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          cd release
+          test -s "Neapolis-Solar-$version-Portable.exe"
+          test -s "Neapolis-Solar-$version-Setup-x64.exe"
+          test -s "Neapolis-Solar-$version-Windows-x64.zip"
+          tr -d '\r' < SHA256SUMS.txt | sha256sum --check
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+      - name: Publish download assets
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+          SOURCE_SHA: ${{ steps.build.outputs.sha }}
+          RUN_ID: ${{ steps.build.outputs.run_id }}
+        run: |
+          set -euo pipefail
+          tag="v$VERSION"
+          if gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1; then
+            echo "Release $tag already exists; its files are preserved. Bump package.json version for the next release."
+            exit 0
+          fi
+          cat > release-notes.md <<'NOTES'
+          Windows 10/11 x64. Node.js для запуска не требуется.
+
+          **Portable.exe** — запуск без установки.
+          **Setup-x64.exe** — установщик с выбором папки и ярлыками.
+          **Windows-x64.zip** — распакуйте целиком и откройте Neapolis Solar.exe.
+          **SHA256SUMS.txt** — контрольные суммы файлов.
+
+          Включены солнечный сектор, подсветка рассчитанных интервалов инсоляции и модель солнца. IFC импортируется с компьютера и обрабатывается локально.
+
+          Файлы пока не подписаны сертификатом издателя. Сборка и автоматические тесты пройдены на Windows; запуск интерфейса и установка на рабочем компьютере ещё требуют проверки.
+          NOTES
+          echo "" >> release-notes.md
+          echo "Проверенная сборка: https://github.com/$GH_REPO/actions/runs/$RUN_ID" >> release-notes.md
+          gh release create "$tag" "release/Neapolis-Solar-$VERSION-Portable.exe" "release/Neapolis-Solar-$VERSION-Setup-x64.exe" "release/Neapolis-Solar-$VERSION-Windows-x64.zip" release/SHA256SUMS.txt --repo "$GH_REPO" --target "$SOURCE_SHA" --title "Neapolis Solar $VERSION" --notes-file release-notes.md
