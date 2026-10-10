@@ -1,15 +1,5 @@
 import { sunVector } from './solar.js';
 
-// A vertical section containing the current ray. A day's rays generally do
-// not lie in one plane; the separate daily path is sampled in three dimensions.
-export function rayPlaneFrame(direction) {
-  const length = Math.hypot(direction.x, direction.z);
-  const horizontal = length > 1e-8
-    ? [direction.x / length, 0, direction.z / length]
-    : [1, 0, 0];
-  return { horizontal, normal: [-horizontal[2], 0, horizontal[0]] };
-}
-
 export function daylightPath(settings, step = 5) {
   if (!(step > 0 && step <= 60)) throw new Error('Invalid trajectory step');
   const at = minute => ({ minute, ...sunVector(settings.date, minute,
@@ -33,4 +23,26 @@ export function daylightPath(settings, step = 5) {
     previous = current;
   }
   return path;
+}
+
+// Adjacent daily rays form a fan rooted at the observation point. Add exact
+// calculation interval boundaries so highlighting never rounds to display steps.
+export function sectorSlices(settings, intervals = null, step = 3) {
+  const samples = daylightPath(settings, step);
+  const spans = (intervals || []).filter(([a, b]) => Number.isFinite(a) && Number.isFinite(b) && b > a);
+  for (const minute of spans.flat()) {
+    if (minute < 0 || minute > 1440) continue;
+    const v = sunVector(settings.date, minute, settings.lat, settings.lon, settings.utc, settings.north);
+    if (v.y >= 0) samples.push({ minute, ...v });
+  }
+  samples.sort((a, b) => a.minute - b.minute);
+  const unique = samples.filter((p, i) => !i || p.minute - samples[i - 1].minute > 1e-6);
+  const slices = [];
+  for (let i = 1; i < unique.length; i++) {
+    const a = unique[i - 1], b = unique[i];
+    if (b.minute - a.minute > step + .01) continue; // never cross the night gap
+    const middle = (a.minute + b.minute) / 2;
+    slices.push({ a, b, sunlit: spans.some(([start, end]) => middle >= start && middle < end) });
+  }
+  return slices;
 }

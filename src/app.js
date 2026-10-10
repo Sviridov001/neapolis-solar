@@ -1,14 +1,16 @@
 import * as T from 'three';import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';import {MeshBVH,acceleratedRaycast} from 'three-mesh-bvh';import {sunVector,insidePolygon,polygonArea,simplePolygon} from './solar.js';
 import {selectPointIds,calculationPoints} from './selection.js';
-import {rayPlaneFrame,daylightPath} from './sun-display.js';
+import {daylightPath,sectorSlices} from './sun-display.js';
+import {createRaySector,createSunGlyph,positionSunGlyph} from './sun-scene.js';
 T.Mesh.prototype.raycast=acceleratedRaycast;
 const $=id=>document.getElementById(id),esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),fmt=t=>`${String(Math.floor(t/60)).padStart(2,'0')}:${String(Math.round(t%60)).padStart(2,'0')}`,hours=m=>`${Math.floor(m/60)}ч ${Math.round(m%60)}м`;
 let meta,arrays,origin=[0,0,0],modelMeshes=[],map=new Map(),points=[],results=[],active=null,mode='inspect',polygon=[],areaLine,areaMarkers=[],measure=[],measureLine,markers=new T.Group(),regions=new T.Group(),calcWorker,calcReady=false,calculating=false,run=0,selectedBox,blockerBox,sunRay,playing=false,lastPlay=0,toastTimer,modelLoading=false;
 let blockerPositions,blockerIDs,sourceIdentity,committedScale=1;
-let selected=new Set(),selectedHelpers=new T.Group(),rayPlane,pathDisplay,pathKey,pathSamples=[],selectionGesture=false;
+let selected=new Set(),selectedHelpers=new T.Group(),daySector,pathDisplay,pathKey,pathSamples=[],selectionGesture=false;
 const canvas=$('scene'),renderer=new T.WebGLRenderer({canvas,antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;renderer.shadowMap.autoUpdate=false;renderer.setClearColor(0x233340,1);renderer.outputColorSpace=T.SRGBColorSpace;
 const scene=new T.Scene(),camera=new T.PerspectiveCamera(42,1,.1,3000);camera.up.set(0,1,0);const controls=new OrbitControls(camera,canvas);controls.enableDamping=true;controls.dampingFactor=.08;controls.maxPolarAngle=Math.PI*.49;
 scene.add(new T.HemisphereLight(0xd8ecff,0x5d645e,2.2));const sun=new T.DirectionalLight(0xffefd5,2.8);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.bias=-.0003;sun.shadow.normalBias=.06;scene.add(sun);scene.add(sun.target);scene.add(markers,regions,selectedHelpers);
+const sunGlyph=createSunGlyph();scene.add(sunGlyph);
 let groundMesh,grid,northArrow;const raycaster=new T.Raycaster();raycaster.firstHitOnly=true;const clickStart=new T.Vector2();
 function toast(s){$('toast').textContent=s;$('toast').style.display='block';clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').style.display='none',5500)}
 function busy(s,on=true){$('busyOverlay').hidden=!on;$('busyText').textContent=s}
@@ -96,30 +98,29 @@ function renderResult(){const p=points.find(p=>p.id===active),r=results.find(r=>
  $('result').innerHTML=`<p>${esc(p.name)}</p><div class="metrics"><div class="metric"><b>${(r.total/60).toFixed(2)}</b><small>ЧАСОВ СУММАРНО</small></div><div class="metric"><b>${(r.longest/60).toFixed(2)}</b><small>ЧАСОВ НЕПРЕРЫВНО</small></div></div><div class="result-strip" id="resultStrip">${r.intervals.map(([a,b])=>`<i style="left:${a/14.4}%;width:${(b-a)/14.4}%"></i>`).join('')}<span class="cursor" style="left:${+$('time').value/14.4}%"></span></div><div class="time-labels"><span>00:00</span><span>12:00</span><span>24:00</span></div><div class="interval-list">${r.intervals.length?r.intervals.map(([a,b])=>`${fmt(a)}–${fmt(b)}`).join('<br>'):'Прямое солнце не обнаружено'}</div>${group}<p class="hint">Дата ${esc($('date').value)} · шаг ${$('step').value} мин · интервалы приблизительные.</p>`;
  $('resultStrip').onclick=e=>{let rect=e.currentTarget.getBoundingClientRect();$('time').value=Math.min(1439,Math.max(0,Math.round((e.clientX-rect.left)/rect.width*1440)));updateSun()};}
 function highlight(el,kind){let old=kind==='selection'?selectedBox:blockerBox;if(old){scene.remove(old);old.geometry.dispose();old.material.dispose()}if(!el){if(kind==='selection')selectedBox=null;else blockerBox=null;return;}let box=new T.Box3(new T.Vector3(...el.bbox[0]),new T.Vector3(...el.bbox[1])),helper=new T.Box3Helper(box,kind==='selection'?0x80c7ca:0xe98975);helper.material.depthTest=false;helper.renderOrder=7;scene.add(helper);if(kind==='selection')selectedBox=helper;else blockerBox=helper;}
-function clearSunDisplays(){disposeDisplay(sunRay);disposeDisplay(rayPlane);disposeDisplay(pathDisplay);sunRay=rayPlane=pathDisplay=null;}
+function clearSunDisplays(){disposeDisplay(sunRay);disposeDisplay(daySector);disposeDisplay(pathDisplay);sunRay=daySector=pathDisplay=null;sunGlyph.visible=false;}
 function updateSunDisplays(point,dir,radius,settings){
- disposeDisplay(rayPlane);rayPlane=null;
- const pos=new T.Vector3(...point.position);
- if($('showRayPlane').checked){
-  const {horizontal}=rayPlaneFrame(dir),h=new T.Vector3(...horizontal);
-  const corners=[[-1.25,-.15],[1.25,-.15],[1.25,1.4],[-1.25,1.4]].map(([x,y])=>pos.clone().addScaledVector(h,x*radius).add(new T.Vector3(0,y*radius,0)));
-  const geometry=new T.BufferGeometry().setFromPoints([corners[0],corners[1],corners[2],corners[0],corners[2],corners[3]]);geometry.computeVertexNormals();
-  rayPlane=new T.Group();rayPlane.add(new T.Mesh(geometry,new T.MeshBasicMaterial({color:0x80c7ca,side:T.DoubleSide,transparent:true,opacity:.12,depthWrite:false})));
-  rayPlane.add(new T.LineLoop(new T.BufferGeometry().setFromPoints(corners),new T.LineBasicMaterial({color:0x80c7ca,transparent:true,opacity:.5,depthWrite:false})));scene.add(rayPlane);
- }
+ const pos=new T.Vector3(...point.position),result=results.find(r=>r.id===point.id);
  const key=JSON.stringify([settings.date,settings.lat,settings.lon,settings.utc,settings.north]);
  if(key!==pathKey){pathSamples=daylightPath(settings);pathKey=key;}
+ const sectorKey=JSON.stringify([key,point.id,radius,result?.intervals||null]);
+ if($('showDaySector').checked){
+  if(daySector?.userData.key!==sectorKey){disposeDisplay(daySector);daySector=createRaySector(sectorSlices(settings,result?.intervals),point.position,radius);daySector.userData.key=sectorKey;scene.add(daySector);}
+ }else{disposeDisplay(daySector);daySector=null;}
  if($('showSunPath').checked){
-  if(pathDisplay?.userData.key===key&&pathDisplay.userData.point===point.id&&pathDisplay.userData.radius===radius)return;
-  disposeDisplay(pathDisplay);pathDisplay=new T.Group();pathDisplay.userData={key,point:point.id,radius};
-  let segment=[];const addSegment=()=>{if(segment.length>1)pathDisplay.add(new T.Line(new T.BufferGeometry().setFromPoints(segment),new T.LineBasicMaterial({color:0xf2c36b,transparent:true,opacity:.85,depthWrite:false})));segment=[];};
-  for(let i=0;i<pathSamples.length;i++){const p=pathSamples[i];if(i&&p.minute-pathSamples[i-1].minute>5.01)addSegment();segment.push(pos.clone().addScaledVector(new T.Vector3(p.x,p.y,p.z),radius));}addSegment();scene.add(pathDisplay);
+  if(pathDisplay?.userData.key!==key||pathDisplay.userData.point!==point.id||pathDisplay.userData.radius!==radius){
+   disposeDisplay(pathDisplay);pathDisplay=new T.Group();pathDisplay.userData={key,point:point.id,radius};
+   let segment=[];const addSegment=()=>{if(segment.length>1)pathDisplay.add(new T.Line(new T.BufferGeometry().setFromPoints(segment),new T.LineBasicMaterial({color:0x80c7ca,transparent:true,opacity:.65,depthWrite:false})));segment=[];};
+   for(let i=0;i<pathSamples.length;i++){const p=pathSamples[i];if(i&&p.minute-pathSamples[i-1].minute>5.01)addSegment();segment.push(pos.clone().addScaledVector(new T.Vector3(p.x,p.y,p.z),radius));}addSegment();scene.add(pathDisplay);
+  }
  }else{disposeDisplay(pathDisplay);pathDisplay=null;}
+ $('sectorStatus').textContent=result?(result.intervals.length?'Золотой сектор — интервалы прямой инсоляции':'По расчёту прямой инсоляции нет'):'Подсветка появится после расчёта активной точки';
+ positionSunGlyph(sunGlyph,dir,pos,radius,$('showSun').checked);
 }
-$('showRayPlane').onchange=updateSun;$('showSunPath').onchange=updateSun;
+$('showDaySector').onchange=updateSun;$('showSunPath').onchange=updateSun;$('showSun').onchange=updateSun;
 function updateSun(){if(!meta){clearSunDisplays();return;}let s=setting();if(!validSettings()){clearSunDisplays();return;}let minute=+$('time').value,v=sunVector(s.date,minute,s.lat,s.lon,s.utc,s.north),dir=new T.Vector3(v.x,v.y,v.z),r=Math.max(meta.focusBounds[1][0]-meta.focusBounds[0][0],meta.focusBounds[1][2]-meta.focusBounds[0][2])*committedScale;
  sun.position.copy(dir).multiplyScalar(r*2+150);sun.target.position.set(0,0,0);sun.intensity=v.y>0?2.8:0;sun.shadow.needsUpdate=true;$('clock').textContent=fmt(minute);$('solarInfo').textContent=`Высота ${(v.altitude*180/Math.PI).toFixed(1)}° · азимут ${v.azimuth.toFixed(0)}°`;$('compassNeedle').style.transform=`rotate(${s.north}deg)`;$('northLabel').textContent=`${s.north}°`;northArrow?.setDirection(new T.Vector3(Math.sin(s.north*Math.PI/180),0,-Math.cos(s.north*Math.PI/180)));
- document.querySelector('.result-strip .cursor')?.style.setProperty('left',`${minute/14.4}%`);if(sunRay){scene.remove(sunRay);sunRay.geometry.dispose();sunRay.material.dispose();sunRay=null}highlight(null,'blocker');let p=points.find(p=>p.id===active);if(!p){clearSunDisplays();$('explanation').textContent='Выберите точку для показа луча, плоскости и суточной траектории.';return;}
+ document.querySelector('.result-strip .cursor')?.style.setProperty('left',`${minute/14.4}%`);if(sunRay){scene.remove(sunRay);sunRay.geometry.dispose();sunRay.material.dispose();sunRay=null}highlight(null,'blocker');let p=points.find(p=>p.id===active);if(!p){clearSunDisplays();positionSunGlyph(sunGlyph,dir,controls.target,Math.max(10,r*.7),$('showSun').checked);$('sectorStatus').textContent='Выберите точку для показа солнечного сектора';$('explanation').textContent='Выберите точку для показа луча и солнечного сектора.';return;}
  updateSunDisplays(p,dir,Math.max(10,r*.7),s);let pos=new T.Vector3(...p.position),normal=p.normal?new T.Vector3(...p.normal):null,hit=null,description='',color=0xf2c36b;
  if(v.y<=0)description='Солнце ниже геометрического горизонта.';else if(normal&&normal.dot(dir)<=0)description='Солнце находится за плоскостью выбранной поверхности.';else{raycaster.set(pos,dir);raycaster.near=.005;raycaster.far=Infinity;hit=raycaster.intersectObjects(modelMeshes.filter(m=>!m.userData.glass),false)[0];if(hit){let id=hit.object.userData.ids[hit.faceIndex],el=map.get(id);color=0xe98975;highlight(el,'blocker');description=`Затеняет: ${el?.name||el?.type||'элемент'} · #${id}. До препятствия ${hit.distance.toFixed(2)} м.`}else description='Прямой луч к солнцу открыт.';}
  if(v.y>0){if(normal&&normal.dot(dir)<=0)color=0x6e829e;sunRay=new T.Line(new T.BufferGeometry().setFromPoints([pos,pos.clone().addScaledVector(dir,hit?hit.distance:Math.max(10,r*.7))]),new T.LineBasicMaterial({color,depthTest:false}));sunRay.renderOrder=9;scene.add(sunRay)}
@@ -129,7 +130,7 @@ function calculate(scope){
  const targets=calculationPoints(points,selected,scope);if(!calcReady||!targets.length||!$('verified').checked||calculating)return;
  // Discard previous partial results, so CSV never mixes settings or runs.
  results=[];for(const p of points)p.marker.material.color.set(0x80c7ca);renderList();renderResult();
- calculating=true;run++;$('calcStatus').textContent=`Трассировка ${targets.length} точек…`;updateButtons();
+ updateSun();calculating=true;run++;$('calcStatus').textContent=`Трассировка ${targets.length} точек…`;updateButtons();
  calcWorker.postMessage({type:'calc',points:targets.map(({marker,...p})=>p),settings:setting(),run});
 }
 $('calculate').onclick=()=>calculate('selected');$('calculateAll').onclick=()=>calculate('all');
