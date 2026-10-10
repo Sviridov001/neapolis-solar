@@ -1,0 +1,62 @@
+{
+  "name": "neapolis-solar",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node tests.mjs",
+    "start": "npm run build && electron .",
+    "desktop": "electron .",
+    "test:desktop": "node desktop/server.test.cjs",
+    "package:win": "npm run build && electron-builder --win portable zip --x64 --publish never"
+  },
+  "version": "0.1.0",
+  "description": "Интерактивный анализ прямого солнца по IFC-моделям",
+  "main": "desktop/main.cjs",
+  "author": "Neapolis Solar contributors",
+  "devDependencies": {
+    "three": "0.180.0",
+    "three-mesh-bvh": "0.9.2",
+    "web-ifc": "0.0.74",
+    "suncalc": "1.9.0",
+    "esbuild": "0.25.10",
+    "electron": "44.7.0",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "org.neapolis.solar",
+    "productName": "Neapolis Solar",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "desktop/main.cjs",
+      "desktop/server.cjs",
+      "package.json",
+      "THIRD_PARTY_NOTICES.txt"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "signAndEditExecutable": false,
+      "artifactName": "Neapolis-Solar-${version}-Windows-${arch}.${ext}"
+    },
+    "portable": {
+      "artifactName": "Neapolis-Solar-${version}-Portable.exe"
+    }
+  }
+}
