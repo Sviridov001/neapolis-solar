@@ -11,3 +11,38 @@ console.log('PASS: solar orientation / timezone / polygon / intervals / BVH hit 
 let d=sunVector('2026-03-20',900,0,0,3,0);assert(Math.abs(d.y-b.y)<1e-12,'UTC offset changes time, not sun');
 
 assert(simplePolygon(poly));assert(!simplePolygon([[0,0,0],[10,0,10],[0,0,10],[10,0,0]]));
+
+// The display plane must contain both the ray and the vertical direction,
+// including an overhead sun and arbitrarily rotated model north.
+const {rayPlaneFrame,daylightPath}=await import('./src/sun-display.js');
+for(const north of [0,37,90,180,270])for(const minute of [0,360,720,1080,1439]){
+ const direction=sunVector('2026-06-21',minute,44.948056,34.104167,3,north);
+ const frame=rayPlaneFrame(direction);
+ assert(Math.abs(frame.normal.reduce((sum,v,i)=>sum+v*[direction.x,direction.y,direction.z][i],0))<1e-10);
+ assert.equal(frame.normal[1],0);
+ assert(Math.abs(Math.hypot(...frame.normal)-1)<1e-10);
+}
+assert.deepEqual(rayPlaneFrame({x:0,y:1,z:0}).horizontal,[1,0,0]);
+const config={date:'2026-03-22',lat:44.948056,lon:34.104167,utc:3,north:0};
+const path=daylightPath(config);
+assert(path.length>100);
+assert(Math.abs(path[0].y)<1e-7&&Math.abs(path.at(-1).y)<1e-7,'Trajectory ends at the geometric horizon');
+assert(path.every(p=>p.y>-1e-7&&Math.abs(Math.hypot(p.x,p.y,p.z)-1)<1e-10));
+const rotated=daylightPath({...config,north:90});
+assert.equal(path.length,rotated.length);
+for(let i=0;i<path.length;i++)assert(Math.abs(path[i].x-rotated[i].z)<1e-10);
+assert.equal(daylightPath({...config,date:'2026-12-21',lat:89}).length,0,'Polar night');
+assert.equal(daylightPath({...config,date:'2026-06-21',lat:89})[0].minute,0,'Polar day begins at midnight');
+
+const {selectPointIds,calculationPoints}=await import('./src/selection.js');
+let chosen=selectPointIds(new Set(),'a');
+chosen=selectPointIds(chosen,'b',true);assert.deepEqual([...chosen],['a','b']);
+const before=chosen;chosen=selectPointIds(chosen,'a',true);
+assert.deepEqual([...before],['a','b'],'Selection does not mutate the previous state');
+assert.deepEqual([...chosen],['b']);
+chosen=selectPointIds(chosen,'c');assert.deepEqual([...chosen],['c']);
+assert.deepEqual(calculationPoints([{id:'a'},{id:'b'},{id:'c'}],chosen,'selected'),[{id:'c'}]);
+assert.equal(calculationPoints([{id:'a'},{id:'b'}],new Set(),'selected').length,0);
+assert.equal(calculationPoints([{id:'a'},{id:'b'}],chosen,'all').length,2);
+assert.equal(selectPointIds(new Set(['c']),'c',true).size,0,'Toggle last point off');
+console.log('PASS: ray section / daily trajectory / polar day and night / multi-selection / calculation scope');

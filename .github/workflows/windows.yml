@@ -1,13 +1,20 @@
 name: Windows application
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
   push:
+    branches: [main]
     tags: ['v*']
 permissions:
   contents: read
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   windows:
     runs-on: windows-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -20,10 +27,18 @@ jobs:
       - run: npm run package:win
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Record SHA256 checksums
+        shell: pwsh
+        run: |
+          Get-ChildItem release -File | Where-Object { $_.Extension -in ".exe", ".zip" } | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+            "$hash  $($_.Name)"
+          } | Set-Content release/SHA256SUMS.txt -Encoding ascii
       - uses: actions/upload-artifact@v4
         with:
           name: Neapolis-Solar-Windows-x64
           path: |
             release/*.exe
             release/*.zip
+            release/SHA256SUMS.txt
           if-no-files-found: error

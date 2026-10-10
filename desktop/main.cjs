@@ -1,6 +1,7 @@
 const {app,BrowserWindow,Menu,dialog,session} = require('electron');
 const path=require('node:path');const {startServer}=require('./server.cjs');
 let server,win,base;
+if(process.platform==='win32')app.setAppUserModelId('org.neapolis.solar');
 const lock=app.requestSingleInstanceLock();
 if(!lock)app.quit();
 else {

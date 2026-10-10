@@ -8,9 +8,10 @@
     "start": "npm run build && electron .",
     "desktop": "electron .",
     "test:desktop": "node desktop/server.test.cjs",
-    "package:win": "npm run build && electron-builder --win portable zip --x64 --publish never"
+    "package:win": "npm run build && electron-builder --win portable nsis zip --x64 --publish never",
+    "package:portable": "npm run build && electron-builder --win portable --x64 --publish never"
   },
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Интерактивный анализ прямого солнца по IFC-моделям",
   "main": "desktop/main.cjs",
   "author": "Neapolis Solar contributors",
@@ -46,6 +47,12 @@
           ]
         },
         {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
           "target": "zip",
           "arch": [
             "x64"
@@ -57,6 +64,15 @@
     },
     "portable": {
       "artifactName": "Neapolis-Solar-${version}-Portable.exe"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "artifactName": "Neapolis-Solar-${version}-Setup-x64.exe"
     }
   }
 }
