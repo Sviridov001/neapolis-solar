@@ -1,6 +1,6 @@
 # Неаполис — Солнечный анализ
 
-**Версия 0.3.0.** Windows-приложение для интерактивного предварительного анализа прямого солнца по IFC-моделям. Интерфейс на русском языке, обработка IFC и расчёт выполняются локально. Интернет для работы не нужен.
+**Версия 0.3.1.** Windows-приложение для интерактивного предварительного анализа прямого солнца по IFC-моделям. Интерфейс на русском языке, обработка IFC и расчёт выполняются локально. Интернет для работы не нужен.
 
 ## Возможности
 
@@ -16,12 +16,12 @@
 
 ## Запуск Windows-версии
 
-Готовые файлы для **Windows 10/11 x64** находятся в [Releases → v0.3.0](https://github.com/Sviridov001/neapolis-solar/releases/tag/v0.3.0):
+Готовые файлы для **Windows 10/11 x64** находятся в [Releases → v0.3.1](https://github.com/Sviridov001/neapolis-solar/releases/tag/v0.3.1):
 
-- [Portable EXE — запуск без установки](https://github.com/Sviridov001/neapolis-solar/releases/download/v0.3.0/Neapolis-Solar-0.3.0-Portable.exe).
-- [Setup EXE — установщик с выбором папки и ярлыками](https://github.com/Sviridov001/neapolis-solar/releases/download/v0.3.0/Neapolis-Solar-0.3.0-Setup-x64.exe).
-- [ZIP — распакуйте целиком и откройте Neapolis Solar.exe](https://github.com/Sviridov001/neapolis-solar/releases/download/v0.3.0/Neapolis-Solar-0.3.0-Windows-x64.zip).
-- [SHA256SUMS.txt — контрольные суммы](https://github.com/Sviridov001/neapolis-solar/releases/download/v0.3.0/SHA256SUMS.txt).
+- [Portable EXE — запуск без установки](https://github.com/Sviridov001/neapolis-solar/releases/download/v0.3.1/Neapolis-Solar-0.3.1-Portable.exe).
+- [Setup EXE — установщик с выбором папки и ярлыками](https://github.com/Sviridov001/neapolis-solar/releases/download/v0.3.1/Neapolis-Solar-0.3.1-Setup-x64.exe).
+- [ZIP — распакуйте целиком и откройте Neapolis Solar.exe](https://github.com/Sviridov001/neapolis-solar/releases/download/v0.3.1/Neapolis-Solar-0.3.1-Windows-x64.zip).
+- [SHA256SUMS.txt — контрольные суммы](https://github.com/Sviridov001/neapolis-solar/releases/download/v0.3.1/SHA256SUMS.txt).
 
 Node.js для запуска не нужен. Portable распаковывает приложение во временный каталог; настройки и кеш хранятся в профиле пользователя. Установщик ставит приложение для текущего пользователя.
 
@@ -35,6 +35,7 @@ Node.js для запуска не нужен. Portable распаковывае
 npm ci
 npm test
 npm run test:desktop
+npm run test:ifc
 npm start
 ```
 
@@ -93,10 +94,13 @@ Renderer работает без Node.js, с context isolation и sandbox. Вн�
 
 Лицензии сторонних библиотек приведены в `THIRD_PARTY_NOTICES.txt`. Исходный код проекта пока не имеет отдельной открытой лицензии.
 
+## Изменения 0.3.1
+
+Исправлен импорт IFC при строгой Content Security Policy: web-ifc обновлён с 0.0.74 до 0.0.78, сборка загрузчика больше не генерирует JavaScript из строк. Политика безопасности продолжает запрещать unsafe-eval. Явно выбран однопоточный движок, поскольку пакет содержит только web-ifc.wasm. Добавлена проверка фактического импорта и геометрии IFC в изолированном JavaScript-контексте с запретом строкового исполнения и разрешённым WebAssembly.
+
 ## Изменения 0.3.0
 
-Наклонный веер дневных лучей вместо вертикального сечения. Золотые участки сектора показывают рассчитанные интервалы инсоляции активной точки. Добавлена небольшая модель солнца с ореолом, движущаяся по текущему направлению луча. Ctrl/Command-выделение и Windows-сборка Portable/NSIS/ZIP сохранены.
-
+Наклонный веер дневных лучей, подсветка интервалов инсоляции и модель солнца.
 
 ## Публикация новых версий
 

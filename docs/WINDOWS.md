@@ -4,11 +4,11 @@
 
 ## Скачать готовое приложение
 
-Откройте [Releases → v0.3.0](https://github.com/Sviridov001/neapolis-solar/releases/tag/v0.3.0). В разделе **Assets** доступны:
+Откройте [Releases → v0.3.1](https://github.com/Sviridov001/neapolis-solar/releases/tag/v0.3.1). В разделе **Assets** доступны:
 
-- [Neapolis-Solar-0.3.0-Portable.exe](https://github.com/Sviridov001/neapolis-solar/releases/download/v0.3.0/Neapolis-Solar-0.3.0-Portable.exe) — без установки.
-- [Neapolis-Solar-0.3.0-Setup-x64.exe](https://github.com/Sviridov001/neapolis-solar/releases/download/v0.3.0/Neapolis-Solar-0.3.0-Setup-x64.exe) — установщик.
-- [Neapolis-Solar-0.3.0-Windows-x64.zip](https://github.com/Sviridov001/neapolis-solar/releases/download/v0.3.0/Neapolis-Solar-0.3.0-Windows-x64.zip) — полный комплект для распаковки.
+- [Neapolis-Solar-0.3.1-Portable.exe](https://github.com/Sviridov001/neapolis-solar/releases/download/v0.3.1/Neapolis-Solar-0.3.1-Portable.exe) — без установки.
+- [Neapolis-Solar-0.3.1-Setup-x64.exe](https://github.com/Sviridov001/neapolis-solar/releases/download/v0.3.1/Neapolis-Solar-0.3.1-Setup-x64.exe) — установщик.
+- [Neapolis-Solar-0.3.1-Windows-x64.zip](https://github.com/Sviridov001/neapolis-solar/releases/download/v0.3.1/Neapolis-Solar-0.3.1-Windows-x64.zip) — полный комплект для распаковки.
 - SHA256SUMS.txt — контрольные суммы.
 
 Для загрузки публичного Release вход в GitHub не требуется.
@@ -16,7 +16,7 @@
 ## Готовые файлы из GitHub Actions
 
 1. Откройте вкладку **Actions** репозитория `Sviridov001/neapolis-solar`.
-2. Выберите workflow **Windows application** и последний успешный запуск для версии 0.3.0. При необходимости используйте **Run workflow → main → Run workflow**.
+2. Выберите workflow **Windows application** и последний успешный запуск для версии 0.3.1. При необходимости используйте **Run workflow → main → Run workflow**.
 3. Внизу страницы скачайте артефакт **Neapolis-Solar-Windows-x64** и распакуйте его. Для скачивания артефакта требуется вход в GitHub.
 4. Выберите один из вариантов:
    - **Portable.exe** — один файл без установки. При запуске распаковывает Electron во временную папку, настройки/кеш хранит в профиле пользователя.
@@ -35,6 +35,7 @@ cd neapolis-solar
 npm ci
 npm test
 npm run test:desktop
+npm run test:ifc
 npm run package:win
 ```
 
@@ -53,3 +54,8 @@ Portable проверен сборкой в Linux, тестами геометр
 ## Дальнейший выпуск
 
 Перед распространением широкой аудитории: проверить пакет на чистой Windows, добавить иконку, настроить подпись Authenticode и проверять опубликованные сборки перед широким распространением. Автоматическое обновление пока не включено.
+
+
+## Ошибка CSP при импорте в версии 0.3.0
+
+Сообщение `Evaluating a string as JavaScript ... unsafe-eval` связано с библиотекой web-ifc 0.0.74. Используйте версию 0.3.1 или новее: обновлённый загрузчик проходит импорт при запрете исполнения JavaScript из строк. Отключать защиту браузера или редактировать IFC для исправления этой ошибки не требуется.

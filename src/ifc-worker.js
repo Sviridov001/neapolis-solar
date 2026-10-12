@@ -1,6 +1,6 @@
 import * as W from 'web-ifc';
 self.onmessage=async({data:d})=>{let api,model;try{
- let warningCount=0;const log=console.error;console.error=(...a)=>{if(a.join(' ').includes('[WEB-IFC]'))warningCount++;else log(...a)};api=new W.IfcAPI();api.SetWasmPath(new URL('./',self.location.href).href,true);await api.Init();
+ let warningCount=0;const log=console.error;console.error=(...a)=>{if(a.join(' ').includes('[WEB-IFC]'))warningCount++;else log(...a)};api=new W.IfcAPI();api.SetWasmPath(new URL('./',self.location.href).href,true);await api.Init(undefined,true);
  model=api.OpenModel(new Uint8Array(d.buffer),{COORDINATE_TO_ORIGIN:false});
  const meta={name:d.name,schema:api.GetModelSchema(model),units:'m',elements:[],chunks:[],bounds:[[Infinity,Infinity,Infinity],[-Infinity,-Infinity,-Infinity]],latitude:null,longitude:null,north:[0,1],failed:[]};
  function getVal(x){return x?.value??x??''}function degrees(a){return (getVal(a)||[]).reduce((s,v,i)=>s+Number(getVal(v))/[1,60,3600,3600000000][i],0)}

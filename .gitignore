@@ -6,3 +6,5 @@ dist/
 *.ifc
 *.pdf
 private-model/
+
+!tests/fixtures/minimal-wall.ifc
